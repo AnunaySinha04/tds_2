@@ -6,6 +6,7 @@ import base64
 from flasgger import Swagger, swag_from
 from flask import Flask, request, jsonify
 from openai import OpenAI
+import os   # <-- added
 
 app = Flask(__name__)
 swagger = Swagger(app)
@@ -146,11 +147,6 @@ def unified_api():
 
     return jsonify(result)
 
-import os
-
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5000))  # <-- Render uses this PORT
     app.run(host="0.0.0.0", port=port, debug=False)
-
-
-
