@@ -80,9 +80,9 @@ def index():
     "responses": {200: {"description": "JSON array of answers from LLM"}}
 })
 def unified_api():
-    questions_file = request.files.get("questions_file")
-    csv_file = request.files.get("csv_file")
-    image_file = request.files.get("image_file")
+    questions_file = request.files.get("questions.txt")
+    csv_file = request.files.get("data.csv")
+    image_file = request.files.get("image.png")
     query_text = request.form.get("query")
 
     if not questions_file:
