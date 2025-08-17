@@ -95,13 +95,27 @@ def index():
     }
 })
 def unified_api():
+    print("Files received:", request.files)
+    print("Form received:", request.form)
+
     csv_file = request.files.get("csv_file")
     questions_file = request.files.get("questions_file")
-    image_file = request.files.get("image_file")
     query_text = request.form.get("query")
 
     if not csv_file or not questions_file:
-        return jsonify({"error": "Both CSV and TXT files are required"}), 400
+        return jsonify({
+            "error": "Both CSV and TXT files are required",
+            "received_files": list(request.files.keys()),
+            "received_form": request.form.to_dict()
+        }), 400
+
+    # csv_file = request.files.get("csv_file")
+    # questions_file = request.files.get("questions_file")
+    image_file = request.files.get("image_file")
+    # query_text = request.form.get("query")
+
+    # if not csv_file or not questions_file:
+    #     return jsonify({"error": "Both CSV and TXT files are required"}), 400
 
     # Save CSV
     df = read_csv_file(csv_file)
