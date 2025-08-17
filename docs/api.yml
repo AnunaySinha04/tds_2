@@ -1,0 +1,32 @@
+tags:
+  - File Upload & LLM
+consumes:
+  - multipart/form-data
+parameters:
+  - name: csv_file
+    in: formData
+    type: file
+    required: false
+    description: CSV file to upload
+  - name: txt_file
+    in: formData
+    type: file
+    required: false
+    description: Text file to upload
+  - name: q
+    in: formData
+    type: string
+    required: false
+    description: Question to ask the LLM
+responses:
+  200:
+    description: Parsed file content and/or LLM response
+    examples:
+      application/json:
+        csv_data:
+          - col1: value1
+            col2: value2
+        txt_data: "This is the text content"
+        llm_answer: "This is the answer from the LLM"
+  400:
+    description: No input provided

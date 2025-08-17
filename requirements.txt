@@ -1,0 +1,9 @@
+pandas
+flasgger
+flask
+requests
+beautifulsoup4
+numpy
+matplotlib
+duckdb
+openai
