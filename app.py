@@ -172,6 +172,11 @@ def index():
     "responses": {200: {"description": "JSON object or array of answers from the agent"}}
 })
 def unified_api():
+    # Log everything in the request
+    logging.debug("---- Incoming /api request ----")
+    logging.debug("Form fields: %s", request.form.to_dict())
+    logging.debug("Files received: %s", list(request.files.keys()))
+
     # Accept both singular and plural + alt field names
     questions_file = (
         request.files.get("questions.txt")
@@ -189,21 +194,30 @@ def unified_api():
     query_text = request.form.get("query")
 
     if not questions_file and not query_text:
+        logging.error("No questions file or query found! Returning 400.")
         return jsonify({"error": "questions.txt or question.txt (or 'query') is required"}), 400
 
     questions_text = query_text or read_txt_file(questions_file)
+    logging.debug("Loaded questions text: %s", questions_text[:200])  # only first 200 chars
+
     task = detect_task(questions_text)
+    logging.debug("Detected task: %s", task)
 
     if task == "sample_sales":
         if not csv_file:
-            return jsonify({"error": "sample-sales task requires 'data.csv' (the sales CSV)"}), 400
+            logging.error("CSV file not provided for sample-sales task.")
+            return jsonify({"error": "sample-sales task requires 'data.csv'"}), 400
         try:
             df = read_csv_file(csv_file)
+            logging.debug("CSV shape: %s", df.shape)
             result_obj = analyze_sample_sales(df)
             return jsonify(result_obj), 200
         except Exception as e:
+            logging.exception("Failed to analyze sample-sales.csv")
             return jsonify({"error": f"Failed to analyze sample-sales.csv: {e}"}), 500
 
+    logging.error("Unrecognized task. Returning 400.")
+    return jsonify({"error": "Task not recognized"}), 400
     # Generic fallback (uses LLM only if enabled)
     if USE_LLM and OPENAI_API_KEY:
         try:
@@ -226,5 +240,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     # debug=False to avoid double-serving in some envs
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
