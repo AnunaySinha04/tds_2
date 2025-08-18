@@ -217,7 +217,7 @@ def unified_api():
     logging.debug("Files received: %s", list(request.files.keys()))
 
     questions_file = request.files.get("questions.txt") or request.files.get("questions_file")
-    csv_file = request.files.get("data.csv") or request.files.get("csv_file")
+    csv_file = (request.files.get("data.csv") or request.files.get("csv_file") or next((f for name, f in request.files.items() if name.lower().endswith(".csv")), None))
     image_file = request.files.get("image.png") or request.files.get("image_file")
     query_text = request.form.get("query")
 
@@ -253,4 +253,5 @@ def unified_api():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
