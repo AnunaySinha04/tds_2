@@ -171,20 +171,30 @@ def index():
     ],
     "responses": {200: {"description": "JSON object or array of answers from the agent"}}
 })
+@app.route("/api", methods=["POST"])
 def unified_api():
-    # Accept both canonical and alt field names
-    questions_file = request.files.get("questions.txt") or request.files.get("questions_file")
-    csv_file = request.files.get("data.csv") or request.files.get("csv_file")
-    image_file = request.files.get("image.png") or request.files.get("image_file")
+    # Accept both singular and plural + alt field names
+    questions_file = (
+        request.files.get("questions.txt")
+        or request.files.get("question.txt")
+        or request.files.get("questions_file")
+    )
+    csv_file = (
+        request.files.get("data.csv")
+        or request.files.get("csv_file")
+    )
+    image_file = (
+        request.files.get("image.png")
+        or request.files.get("image_file")
+    )
     query_text = request.form.get("query")
 
     if not questions_file and not query_text:
-        return jsonify({"error": "questions.txt (or 'query') is required"}), 400
+        return jsonify({"error": "questions.txt or question.txt (or 'query') is required"}), 400
 
     questions_text = query_text or read_txt_file(questions_file)
     task = detect_task(questions_text)
 
-    # Route: sample-sales – compute deterministically from CSV
     if task == "sample_sales":
         if not csv_file:
             return jsonify({"error": "sample-sales task requires 'data.csv' (the sales CSV)"}), 400
@@ -217,3 +227,4 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     # debug=False to avoid double-serving in some envs
     app.run(host="0.0.0.0", port=port, debug=False)
+
