@@ -6,7 +6,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from flask import Flask, request, jsonify
 from flasgger import Swagger, swag_from
-
+import logging
+logging.basicConfig(level=logging.DEBUG)
 # ---------------------- Flask Setup ----------------------
 app = Flask(__name__)
 swagger = Swagger(app)
@@ -211,17 +212,26 @@ def index():
     "responses": {200: {"description": "JSON object"}}
 })
 def unified_api():
+    logging.debug("---- Incoming /api request ----")
+    logging.debug("Form fields: %s", dict(request.form))
+    logging.debug("Files received: %s", list(request.files.keys()))
+
     questions_file = request.files.get("questions.txt") or request.files.get("questions_file")
     csv_file = request.files.get("data.csv") or request.files.get("csv_file")
+    image_file = request.files.get("image.png") or request.files.get("image_file")
     query_text = request.form.get("query")
 
     if not questions_file and not query_text:
+        logging.error("400: No questions.txt or query provided")
         return jsonify({"error": "questions.txt (or 'query') is required"}), 400
 
     questions_text = query_text or read_txt_file(questions_file)
+    logging.debug("Loaded questions text: %s", questions_text[:200])
     task = detect_task(questions_text)
+    logging.debug("Detected task: %s", task)
 
     if not csv_file:
+        logging.error("400: CSV file missing for task %s", task)
         return jsonify({"error": f"Task '{task}' requires a CSV file"}), 400
 
     try:
@@ -233,11 +243,14 @@ def unified_api():
         elif task == "graph":
             return jsonify(analyze_graph(df)), 200
         else:
-            return jsonify({"error": "Unrecognized task. Please clarify in questions.txt"}), 400
+            logging.error("400: Task not recognized")
+            return jsonify({"error": "Unrecognized task"}), 400
     except Exception as e:
+        logging.exception("500: Failed to analyze")
         return jsonify({"error": f"Failed to analyze: {e}"}), 500
 
 # ---------------------- Run ----------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
