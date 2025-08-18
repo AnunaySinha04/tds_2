@@ -145,10 +145,13 @@ def analyze_sample_sales(df: pd.DataFrame):
     }
 
 def detect_task(questions_text: str) -> str:
-    """Return a simple task key for routing."""
     qt = questions_text.lower()
-    if "analyze `sample-sales.csv`" in qt or "analyze 'sample-sales.csv'" in qt or "analyze sample-sales.csv" in qt:
+    if "sample-sales" in qt:
         return "sample_sales"
+    if "sample-weather" in qt:
+        return "sample_weather"
+    if "edges.csv" in qt or "network" in qt:
+        return "graph"
     return "generic"
 
 # ---------------------- Routes ----------------------
@@ -172,30 +175,62 @@ def index():
     "responses": {200: {"description": "JSON object or array of answers from the agent"}}
 })
 def unified_api():
-    # Log everything in the request
     logging.debug("---- Incoming /api request ----")
     logging.debug("Form fields: %s", request.form.to_dict())
     logging.debug("Files received: %s", list(request.files.keys()))
 
-    # Accept both singular and plural + alt field names
+    # Accept ANY csv file
     questions_file = (
         request.files.get("questions.txt")
         or request.files.get("question.txt")
         or request.files.get("questions_file")
     )
-    csv_file = (
-        request.files.get("data.csv")
-        or request.files.get("csv_file")
-    )
-    image_file = (
-        request.files.get("image.png")
-        or request.files.get("image_file")
-    )
     query_text = request.form.get("query")
+
+    # pick the first csv in files (not only "data.csv")
+    csv_file = None
+    for k, f in request.files.items():
+        if k.endswith(".csv"):
+            csv_file = f
+            break
 
     if not questions_file and not query_text:
         logging.error("No questions file or query found! Returning 400.")
         return jsonify({"error": "questions.txt or question.txt (or 'query') is required"}), 400
+
+    questions_text = query_text or read_txt_file(questions_file)
+    logging.debug("Loaded questions text: %s", questions_text[:200])
+    task = detect_task(questions_text)
+    logging.debug("Detected task: %s", task)
+
+    try:
+        if task == "sample_sales":
+            if not csv_file:
+                return jsonify({"error": "sample-sales task requires a CSV"}), 400
+            df = read_csv_file(csv_file)
+            result = analyze_sample_sales(df)
+            return jsonify(result)
+
+        if task == "sample_weather":
+            if not csv_file:
+                return jsonify({"error": "sample-weather task requires a CSV"}), 400
+            df = read_csv_file(csv_file)
+            result = analyze_sample_weather(df)
+            return jsonify(result)
+
+        if task == "graph":
+            if not csv_file:
+                return jsonify({"error": "graph task requires a CSV"}), 400
+            df = read_csv_file(csv_file)
+            result = analyze_graph(df)
+            return jsonify(result)
+
+    except Exception as e:
+        logging.exception("Task failed")
+        return jsonify({"error": str(e)}), 500
+
+    logging.error("Unrecognized task. Returning 400.")
+    return jsonify({"error": "Task not recognized"}), 400
 
     questions_text = query_text or read_txt_file(questions_file)
     logging.debug("Loaded questions text: %s", questions_text[:200])  # only first 200 chars
@@ -235,11 +270,68 @@ def unified_api():
     # If no LLM, respond clearly
     return jsonify({"error": "Task not recognized and LLM fallback disabled. Provide a supported dataset task (e.g., sample-sales)."}), 400
 
+
+def analyze_sample_weather(df):
+    # Normalize columns
+    cols = {c.lower(): c for c in df.columns}
+    c_date = cols.get("date")
+    c_temp = cols.get("temp_c")
+    c_precip = cols.get("precip_mm")
+    dfx = df.copy()
+    dfx[c_date] = pd.to_datetime(dfx[c_date], errors="coerce")
+    dfx[c_temp] = pd.to_numeric(dfx[c_temp], errors="coerce")
+    dfx[c_precip] = pd.to_numeric(dfx[c_precip], errors="coerce")
+
+    avg_temp = float(dfx[c_temp].mean())
+    max_precip_row = dfx.loc[dfx[c_precip].idxmax()]
+    max_precip_date = str(max_precip_row[c_date].date())
+    min_temp = float(dfx[c_temp].min())
+    correlation = float(dfx[c_temp].corr(dfx[c_precip]))
+    avg_precip = float(dfx[c_precip].mean())
+
+    return {
+        "average_temp_c": avg_temp,
+        "max_precip_date": max_precip_date,
+        "min_temp_c": min_temp,
+        "temp_precip_correlation": correlation,
+        "average_precip_mm": avg_precip,
+    }
+
+def analyze_graph(df):
+    import networkx as nx
+    cols = {c.lower(): c for c in df.columns}
+    u, v = list(cols.values())[0], list(cols.values())[1]
+    edges = df[[u, v]].dropna().values.tolist()
+    G = nx.Graph()
+    G.add_edges_from(edges)
+
+    edge_count = G.number_of_edges()
+    degrees = dict(G.degree())
+    highest_degree_node = max(degrees, key=degrees.get)
+    avg_degree = float(sum(degrees.values()) / len(degrees))
+    density = float(nx.density(G))
+
+    path_len = None
+    if "alice" in G and "bob" in G:
+        try:
+            path_len = nx.shortest_path_length(G, "alice", "bob")
+        except nx.NetworkXNoPath:
+            path_len = None
+
+    return {
+        "edge_count": edge_count,
+        "highest_degree_node": highest_degree_node,
+        "average_degree": avg_degree,
+        "density": density,
+        "shortest_path_alice_bob": path_len,
+    }
+
 # ---------------------- Run ----------------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     # debug=False to avoid double-serving in some envs
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 
