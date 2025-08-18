@@ -171,7 +171,6 @@ def index():
     ],
     "responses": {200: {"description": "JSON object or array of answers from the agent"}}
 })
-@app.route("/api", methods=["POST"])
 def unified_api():
     # Accept both singular and plural + alt field names
     questions_file = (
@@ -227,4 +226,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     # debug=False to avoid double-serving in some envs
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
