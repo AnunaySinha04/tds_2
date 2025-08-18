@@ -3,7 +3,7 @@ import io
 import base64
 import math
 from datetime import datetime
-
+import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 from flask import Flask, request, jsonify
@@ -12,7 +12,7 @@ from flasgger import Swagger, swag_from
 # ---------------------- Flask Setup ----------------------
 app = Flask(__name__)
 swagger = Swagger(app)
-
+logging.basicConfig(level=logging.DEBUG)
 # ---------------------- Optional LLM (kept but not required) ----------------------
 # Use env vars if you *really* need the LLM fallback for other tasks.
 USE_LLM = False  # default off for deterministic evals
@@ -240,6 +240,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     # debug=False to avoid double-serving in some envs
     app.run(host="0.0.0.0", port=port, debug=False)
+
 
 
 
